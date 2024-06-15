@@ -1,361 +1,320 @@
 #ifndef GRAPH_HPP
 #define GRAPH_HPP
 
-#include <algorithm>
 #include <iostream>
-#include <string>
-#include <unordered_map>
+#include <map>
+#include <set>
 #include <vector>
+#include <queue>
+#include <stack>
+#include <limits>
+#include <algorithm>
 
-/* This class doesn't have a copy constructor so as to prevent itself from being
- * copied */
-class VoidVertexData
-{
-	VoidVertexData(const VoidVertexData&) = delete;
-};
-
-template <typename VertexData_t> struct Vertex
-{
-	~Vertex()
-	{
-		if (data != nullptr)
-		{
-			delete data;
-		}
-	}
-
-	VertexData_t* data = nullptr;
-	std::vector<std::string> neighbors;
-	std::unordered_map<std::string, double> weights;
-};
-
-// Graph<vertex data type(defaults to VoidVertexData)>
-template <typename VertexData_t = VoidVertexData> class Graph
+template <typename T>
+class Graph
 {
 public:
-	Graph() = default;
+    void addNode(T node);
+    void addEdge(T src, T dest, int weight = 1);
+    void addWeightedEdge(T src, T dest, int weight);
+    void removeEdge(T src, T dest);
+    std::vector<T> bfs(T start);
+    std::vector<T> dfs(T start);
+    std::vector<T> shortestPath(T start, T end);
+    std::vector<T> topologicalSort();
+    std::vector<std::pair<int, std::pair<T, T>>> kruskal();
+    std::vector<std::pair<T, T>> prim();
 
-	// Gets list of vertexes
-	Graph(std::initializer_list<std::string> l)
-	{
-		for (auto v : l)
-		{
-			AddVertex(v);
-		}
-	}
-
-	/* Returns whether there is an edge from the vertex 'from' to the vertex
-	 'to'. */
-	bool IsAdjacent(const std::string& from, const std::string& to);
-	/* Returns a std::vector of vertics adjacent to v. */
-	const std::vector<std::string>& Neighbors(const std::string& v);
-	// Adds the vertex 'v', if it is not there.
-	void AddVertex(const std::string& v);
-	// Removes the vertex 'v', if it is there.
-	void RemoveVertex(const std::string& v);
-	/* Returns the data associated with the vertex x.
-	The data will be copied so VertexData_t requires a copy constructor. */
-	VertexData_t GetVertexData(const std::string& v);
-	/* Sets the data associated with the vertex x to v.
-	 The data will be copied so VertexData_t requires a copy constructor. */
-	void SetVertexData(const std::string& v, const VertexData_t& data);
-	/* Adds the edge from the vertex 'from' to the vertex 'to', if it is not
-	there. */
-	void AddEdge(const std::string& from, const std::string& to);
-	/* removes the edge from the vertex 'from' to the vertex 'to', if it is
-	 there. */
-	void RemoveEdge(const std::string& from, const std::string& to);
-	// returns the weigh associated with the edge (from, to).
-	double GetEdgeWeight(const std::string& from, const std::string& to);
-	// sets the weigh associated with the edge (from, to).
-	void SetEdgeWeight(const std::string& from, const std::string& to,
-		double w);
-	// Returns true if the vertex exists, otherwise returns false.
-	bool IsVertexExist(const std::string& v);
-	// Gets all the vertexes
-	std::vector<std::string> GetAllVertexes();
-	// Clears the graph.
-	void Clear()
-	{
-		vertexes.clear();
-	}
-
-	// The same as graph.Neighbors(v).
-	const std::vector<std::string>& operator[](const std::string& v)
-	{
-		return Neighbors(v);
-	}
-
-	// The same as lhs.AddVertex(rhs).
-	Graph<VertexData_t>& operator+=(const std::string& rhs)
-	{
-		AddVertex(rhs);
-
-		return *this;
-	}
-
-	// The same as lhs.RemoveVertex(rhs).
-	Graph<VertexData_t>& operator-=(const std::string& rhs)
-	{
-		RemoveVertex(rhs);
-
-		return *this;
-	}
 private:
-	typename std::unordered_map<std::string, Vertex<VertexData_t>> vertexes;
-	typename std::unordered_map<std::string, Vertex<VertexData_t>>::iterator
-		GetVertex(const std::string& v);
+    std::map<T, std::map<T, int>> adjList;
+    std::vector<std::pair<int, std::pair<T, T>>> edges;
+
+    void dfsUtil(T node, std::set<T> &visited, std::vector<T> &result);
+    void topologicalSortUtil(T node, std::set<T> &visited, std::stack<T> &Stack);
+    int findParent(T node, std::map<T, T> &parent);
+    void unionNodes(T u, T v, std::map<T, T> &parent, std::map<T, int> &rank);
 };
 
-template <typename VertexData_t>
-typename std::unordered_map<std::string, Vertex<VertexData_t>>::iterator Graph<
-	VertexData_t>::GetVertex(const std::string& v)
+template <typename T>
+void Graph<T>::addNode(T node)
 {
-	return vertexes.find(v);
+    adjList[node] = std::map<T, int>();
 }
 
-template <typename VertexData_t>
-bool Graph<VertexData_t>::IsVertexExist(const std::string& v)
+template <typename T>
+void Graph<T>::addEdge(T src, T dest, int weight)
 {
-	if (GetVertex(v) != vertexes.end())
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
+    adjList[src][dest] = weight;
+    adjList[dest][src] = weight; // For undirected graph
+    edges.push_back({weight, {src, dest}});
 }
 
-template <typename VertexData_t>
-bool Graph<VertexData_t>::IsAdjacent(const std::string& from,
-	const std::string& to)
+template <typename T>
+void Graph<T>::addWeightedEdge(T src, T dest, int weight)
 {
-	typename std::unordered_map<std::string, Vertex<VertexData_t>>::iterator
-		fromVertex = GetVertex(from);
-	bool result = true;
-
-	if (fromVertex == vertexes.end())
-	{
-		throw std::runtime_error("vertex " + from + " doesn't exist");
-	}
-
-	if (std::find(fromVertex->second.neighbors.begin(),
-		fromVertex->second.neighbors.end(),
-		to) == fromVertex->second.neighbors.end())
-	{
-		result = false;
-	}
-
-	return result;
+    addEdge(src, dest, weight);
 }
 
-template <typename VertexData_t>
-const std::vector<std::string>& Graph<VertexData_t>::Neighbors(
-	const std::string& v)
+template <typename T>
+void Graph<T>::removeEdge(T src, T dest)
 {
-	if (GetVertex(v) == vertexes.end())
-	{
-		throw std::runtime_error("vertex " + v + " doesn't exist");
-	}
-
-	return vertexes[v].neighbors;
+    adjList[src].erase(dest);
+    adjList[dest].erase(src);
+    edges.erase(std::remove_if(edges.begin(), edges.end(),
+                               [src, dest](const std::pair<int, std::pair<T, T>> &edge)
+                               {
+                                   return (edge.second.first == src && edge.second.second == dest) ||
+                                          (edge.second.first == dest && edge.second.second == src);
+                               }),
+                edges.end());
 }
 
-template <typename VertexData_t>
-void Graph<VertexData_t>::AddVertex(const std::string& v)
+template <typename T>
+std::vector<T> Graph<T>::bfs(T start)
 {
-	if (IsVertexExist(v))
-	{
-		throw std::runtime_error("vertex " + v + " already exists");
-	}
+    std::vector<T> result;
+    std::set<T> visited;
+    std::queue<T> q;
 
-	vertexes[v] = Vertex<VertexData_t>();
+    visited.insert(start);
+    q.push(start);
+
+    while (!q.empty())
+    {
+        T node = q.front();
+        q.pop();
+        result.push_back(node);
+
+        for (const auto &neighbor : adjList[node])
+        {
+            if (visited.find(neighbor.first) == visited.end())
+            {
+                visited.insert(neighbor.first);
+                q.push(neighbor.first);
+            }
+        }
+    }
+    return result;
 }
 
-template <typename VertexData_t>
-void Graph<VertexData_t>::RemoveVertex(const std::string& v)
+template <typename T>
+void Graph<T>::dfsUtil(T node, std::set<T> &visited, std::vector<T> &result)
 {
-	typename std::unordered_map<std::string, Vertex<VertexData_t>>::iterator
-		destVertex = GetVertex(v);
+    visited.insert(node);
+    result.push_back(node);
 
-	if (destVertex == vertexes.end())
-	{
-		throw std::runtime_error("vertex " + v + " doesn't exist");
-	}
-	else
-	{
-		vertexes.erase(destVertex);
-	}
+    for (const auto &neighbor : adjList[node])
+    {
+        if (visited.find(neighbor.first) == visited.end())
+        {
+            dfsUtil(neighbor.first, visited, result);
+        }
+    }
 }
 
-template <typename VertexData_t>
-VertexData_t Graph<VertexData_t>::GetVertexData(const std::string& v)
+template <typename T>
+std::vector<T> Graph<T>::dfs(T start)
 {
-	typename std::unordered_map<std::string, Vertex<VertexData_t>>::iterator
-		destVertex = GetVertex(v);
-
-	if (destVertex == vertexes.end())
-	{
-		throw std::runtime_error("vertex " + v + " doesn't exist");
-	}
-
-	return *(destVertex->second.data);
+    std::vector<T> result;
+    std::set<T> visited;
+    dfsUtil(start, visited, result);
+    return result;
 }
 
-template <typename VertexData_t>
-void Graph<VertexData_t>::SetVertexData(const std::string& v,
-	const VertexData_t& data)
+template <typename T>
+std::vector<T> Graph<T>::shortestPath(T start, T end)
 {
-	typename std::unordered_map<std::string, Vertex<VertexData_t>>::iterator
-		destVertex = GetVertex(v);
+    std::map<T, int> distances;
+    std::map<T, T> previous;
+    std::set<T> visited;
+    auto compare = [&distances](T left, T right)
+    { return distances[left] > distances[right]; };
+    std::priority_queue<T, std::vector<T>, decltype(compare)> queue(compare);
 
-	if (destVertex == vertexes.end())
-	{
-		throw std::runtime_error("vertex " + v + " doesn't exist");
-	}
+    for (const auto &pair : adjList)
+    {
+        distances[pair.first] = std::numeric_limits<int>::max();
+    }
+    distances[start] = 0;
+    queue.push(start);
 
-	destVertex->second.data = new VertexData_t(data);
+    while (!queue.empty())
+    {
+        T current = queue.top();
+        queue.pop();
+
+        if (current == end)
+            break;
+
+        visited.insert(current);
+
+        for (const auto &neighbor : adjList[current])
+        {
+            if (visited.find(neighbor.first) != visited.end())
+                continue;
+
+            int newDist = distances[current] + neighbor.second;
+            if (newDist < distances[neighbor.first])
+            {
+                distances[neighbor.first] = newDist;
+                previous[neighbor.first] = current;
+                queue.push(neighbor.first);
+            }
+        }
+    }
+
+    std::vector<T> path;
+    for (T at = end; at != start; at = previous[at])
+    {
+        path.push_back(at);
+    }
+    path.push_back(start);
+    std::reverse(path.begin(), path.end());
+    return path;
 }
 
-template <typename VertexData_t>
-void Graph<VertexData_t>::AddEdge(const std::string& from,
-	const std::string& to)
+template <typename T>
+void Graph<T>::topologicalSortUtil(T node, std::set<T> &visited, std::stack<T> &Stack)
 {
-	typename std::unordered_map<std::string, Vertex<VertexData_t>>::iterator
-		fromVertex = GetVertex(from);
-
-	if (fromVertex == vertexes.end())
-	{
-		throw std::runtime_error("vertex " + from + " doesn't exist");
-	}
-
-	if (GetVertex(to) == vertexes.end())
-	{
-		throw std::runtime_error("vertex " + to + " doesn't exist");
-	}
-
-	if (IsAdjacent(from, to))
-	{
-		throw std::runtime_error("edge " + from + " to " + to +
-			" already exists");
-	}
-
-	fromVertex->second.neighbors.push_back(to);
-	fromVertex->second.weights[to] = 0;
+    visited.insert(node);
+    for (const auto &neighbor : adjList[node])
+    {
+        if (visited.find(neighbor.first) == visited.end())
+        {
+            topologicalSortUtil(neighbor.first, visited, Stack);
+        }
+    }
+    Stack.push(node);
 }
 
-template <typename VertexData_t>
-void Graph<VertexData_t>::RemoveEdge(const std::string& from,
-	const std::string& to)
+template <typename T>
+std::vector<T> Graph<T>::topologicalSort()
 {
-	typename std::unordered_map<std::string, Vertex<VertexData_t>>::iterator
-		fromVertex = GetVertex(from);
-	typename std::vector<std::string>::iterator toVertex;
-	bool isFromVertexExists = false;
-	bool isToVertexExists;
+    std::stack<T> Stack;
+    std::set<T> visited;
+    std::vector<T> result;
 
-	if (fromVertex == vertexes.end())
-	{
-		throw std::runtime_error("vertex " + from + " doesn't exist");
-	}
+    for (const auto &pair : adjList)
+    {
+        if (visited.find(pair.first) == visited.end())
+        {
+            topologicalSortUtil(pair.first, visited, Stack);
+        }
+    }
 
-	if (GetVertex(to) == vertexes.end())
-	{
-		throw std::runtime_error("vertex " + to + " doesn't exist");
-	}
+    while (!Stack.empty())
+    {
+        result.push_back(Stack.top());
+        Stack.pop();
+    }
 
-	if (!IsAdjacent(from, to))
-	{
-		throw std::runtime_error("edge " + from + "and " + to +
-			" doesn't exist");
-	}
-
-	fromVertex.neighbors.erase(std::find(fromVertex.neighbors.begin(),
-		fromVertex.neighbors.end(), to));
+    return result;
 }
 
-template <typename VertexData_t>
-double Graph<VertexData_t>::GetEdgeWeight(const std::string& from,
-	const std::string& to)
+template <typename T>
+int Graph<T>::findParent(T node, std::map<T, T> &parent)
 {
-	typename std::unordered_map<std::string, Vertex<VertexData_t>>::iterator
-		fromVertex = GetVertex(from);
-	typename std::vector<std::string>::iterator toVertex;
-	bool isToVertexExists = false;
-
-	if (fromVertex == vertexes.end())
-	{
-		throw std::runtime_error("edge from " + from + " to " + to +
-			" doesn't exist");
-	}
-
-	for (auto vertex = fromVertex->second.neighbors.begin();
-		vertex != fromVertex->second.neighbors.end(); vertex++)
-	{
-		if (*vertex == to)
-		{
-			isToVertexExists = true;
-			toVertex = vertex;
-		}
-	}
-
-	if (!isToVertexExists)
-	{
-		throw std::runtime_error("edge from " + from + " to " + to +
-			" doesn't exist");
-	}
-
-	return fromVertex->second
-		.weights[to];
+    if (parent[node] == node)
+    {
+        return node;
+    }
+    return parent[node] = findParent(parent[node], parent);
 }
 
-template <typename VertexData_t>
-void Graph<VertexData_t>::SetEdgeWeight(const std::string& from,
-	const std::string& to, double w)
+template <typename T>
+void Graph<T>::unionNodes(T u, T v, std::map<T, T> &parent, std::map<T, int> &rank)
 {
-	typename std::unordered_map<std::string, Vertex<VertexData_t>>::iterator
-		fromVertex = GetVertex(from);
-	typename std::vector<std::string>::iterator toVertex;
-	bool isToVertexExists = false;
+    T parentU = findParent(u, parent);
+    T parentV = findParent(v, parent);
 
-	if (fromVertex == vertexes.end())
-	{
-		throw std::runtime_error("edge from " + from + " to " + to +
-			" doesn't exist");
-	}
-
-	for (auto vertex = fromVertex->second.neighbors.begin();
-		vertex != fromVertex->second.neighbors.end(); vertex++)
-	{
-		if (*vertex == to)
-		{
-			isToVertexExists = true;
-			toVertex = vertex;
-		}
-	}
-
-	if (!isToVertexExists)
-	{
-		throw std::runtime_error("edge from " + from + " to " + to +
-			" doesn't exist");
-	}
-
-	fromVertex->second
-		.weights[to] = w;
+    if (rank[parentU] < rank[parentV])
+    {
+        parent[parentU] = parentV;
+    }
+    else if (rank[parentU] > rank[parentV])
+    {
+        parent[parentV] = parentU;
+    }
+    else
+    {
+        parent[parentV] = parentU;
+        rank[parentU]++;
+    }
 }
 
-template <typename VertexData_t>
-std::vector<std::string> Graph<VertexData_t>::GetAllVertexes()
+template <typename T>
+std::vector<std::pair<int, std::pair<T, T>>> Graph<T>::kruskal()
 {
-	std::vector<std::string> result;
+    std::vector<std::pair<int, std::pair<T, T>>> result;
+    std::map<T, T> parent;
+    std::map<T, int> rank;
 
-	for (auto& e : vertexes)
-	{
-		result.push_back(e.first);
-	}
+    for (const auto &pair : adjList)
+    {
+        parent[pair.first] = pair.first;
+        rank[pair.first] = 0;
+    }
 
-	return result;
+    std::sort(edges.begin(), edges.end());
+
+    for (const auto &edge : edges)
+    {
+        T u = edge.second.first;
+        T v = edge.second.second;
+        int weight = edge.first;
+
+        T parentU = findParent(u, parent);
+        T parentV = findParent(v, parent);
+
+        if (parentU != parentV)
+        {
+            result.push_back(edge);
+            unionNodes(parentU, parentV, parent, rank);
+        }
+    }
+
+    return result;
 }
 
-#endif
+template <typename T>
+std::vector<std::pair<T, T>> Graph<T>::prim()
+{
+    std::vector<std::pair<T, T>> result;
+    std::set<T> visited;
+    std::priority_queue<std::pair<int, std::pair<T, T>>, std::vector<std::pair<int, std::pair<T, T>>>, std::greater<>> minHeap;
+
+    T start = adjList.begin()->first;
+    visited.insert(start);
+
+    for (const auto &neighbor : adjList[start])
+    {
+        minHeap.push({neighbor.second, {start, neighbor.first}});
+    }
+
+    while (!minHeap.empty())
+    {
+        auto edge = minHeap.top();
+        minHeap.pop();
+
+        T u = edge.second.first;
+        T v = edge.second.second;
+
+        if (visited.find(v) == visited.end())
+        {
+            visited.insert(v);
+            result.push_back({u, v});
+
+            for (const auto &neighbor : adjList[v])
+            {
+                if (visited.find(neighbor.first) == visited.end())
+                {
+                    minHeap.push({neighbor.second, {v, neighbor.first}});
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+#endif // GRAPH_HPP
